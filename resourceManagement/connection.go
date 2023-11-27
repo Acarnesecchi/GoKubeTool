@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -18,13 +15,19 @@ type KubernetesClient struct {
 	client *kubernetes.Clientset
 }
 
-func inClusterConnect() {
+func inClusterConnect(k *KubernetesClient) {
 	// Configures the client to use your local kubeconfig file.
 	var kubeconfig string
+	defaultKubeConfigPath := filepath.Join("/root", ".kube", "config") //you'll have to deal with file permissions!
 	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = filepath.Join(home, ".kube", "config")
+		homeKubeConfigPath := filepath.Join(home, ".kube", "config")
+		if _, err := os.Stat(homeKubeConfigPath); err == nil {
+			kubeconfig = homeKubeConfigPath
+		} else {
+			kubeconfig = defaultKubeConfigPath
+		}
 	} else {
-		kubeconfig = filepath.Join("root", ".kube", "config")
+		kubeconfig = defaultKubeConfigPath
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -39,17 +42,7 @@ func inClusterConnect() {
 	if err != nil {
 		panic(err.Error())
 	}
-
-	// Fetches the list of namespaces.
-	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err.Error())
-	}
-
-	fmt.Println("Namespaces in the cluster:")
-	for _, ns := range namespaces.Items {
-		fmt.Println(ns.Name)
-	}
+	k.client = clientset
 }
 
 func outClusterConnect(k *KubernetesClient) {
@@ -79,15 +72,4 @@ func outClusterConnect(k *KubernetesClient) {
 		panic(err.Error())
 	}
 	k.client = clientset // stores the client connection for later use
-
-	// Fetches the list of namespaces.
-	namespaces, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err.Error())
-	}
-
-	fmt.Println("Namespaces in the cluster:")
-	for _, ns := range namespaces.Items {
-		fmt.Println(ns.Name)
-	}
 }
