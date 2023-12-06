@@ -1,0 +1,5 @@
+jobname: reset-dbb
+containerImage: "random-status-log:1.0"
+restartPolicy: Never
+backoffLimit: 0
+namespace: test
