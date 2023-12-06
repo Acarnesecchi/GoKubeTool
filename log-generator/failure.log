@@ -1,0 +1,5 @@
+[2023-12-06 11:00:00] INFO: Starting database deletion process.
+[2023-12-06 11:00:05] ERROR: Failed to connect to the database.
+[2023-12-06 11:00:10] INFO: Attempting to retry connection...
+[2023-12-06 11:00:15] ERROR: Connection retry failed.
+[2023-12-06 11:00:20] CRITICAL: Database deletion process aborted due to connection failure.

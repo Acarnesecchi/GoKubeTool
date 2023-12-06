@@ -15,10 +15,19 @@ func check(e error) {
 }
 
 func main() {
-	file, err := os.Open("sample.txt")
+
+	// Randomly choose a file to open
+	fileName := "failure.log"
+	if rand.Intn(2) == 0 { // Randomly select between 0 and 1
+		fileName = "success.log"
+	}
+
+	// Open the chosen file
+	file, err := os.Open(fileName)
 	if err != nil {
 		check(err)
 	}
+	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -28,5 +37,11 @@ func main() {
 	}
 
 	check(scanner.Err())
-	os.Exit(0)
+
+	// Set exit code based on file opened
+	if fileName == "success.log" {
+		os.Exit(0)
+	} else {
+		os.Exit(1)
+	}
 }
