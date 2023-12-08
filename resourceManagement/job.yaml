@@ -1,4 +1,4 @@
-jobname: reset-dbb
+jobname: reset-db
 containerImage: "random-status-log:1.0"
 restartPolicy: Never
 backoffLimit: 0

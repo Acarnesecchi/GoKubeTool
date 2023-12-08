@@ -9,9 +9,7 @@ func main() {
 	fp := flag.String("file", "default", "path of file to examine")
 	inCluster := flag.Bool("in-cluster", false, "Connection mode. Set to false if it is executed from a pod inside the cluster")
 	flag.Parse()
-	fmt.Println("path:", *fp)
 	option := flag.Arg(0)
-	fmt.Println("Option:", option)
 
 	client := &KubernetesClient{}
 	if !*inCluster {
@@ -22,14 +20,21 @@ func main() {
 
 	switch option {
 	case "resetdb":
-		fmt.Sprintf("Resetting DB using %s file", *fp)
-		resetDB(client, *fp)
+		for i := 0; i < 3; i++ {
+			fmt.Printf("Resetting DB using %s file \n", *fp)
+			val := resetDB(client, *fp)
+			if val {
+				fmt.Println("Job ended succesfully.")
+				break
+			}
+			fmt.Printf("Job ended in a failure. Retrying again up to %d more times\n", 3-i)
+		}
 	case "fetch":
 		fmt.Println("Doing nothing")
 	case "":
-		panic(fmt.Sprint("Empty argument"))
+		panic(("Empty argument"))
 	default:
 		panic(fmt.Sprintf("Invalid argument: %s", option))
 	}
-	fetch(client)
+	//fetch(client)
 }
