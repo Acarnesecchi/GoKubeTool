@@ -34,15 +34,14 @@ func inClusterConnect(k *KubernetesClient) {
 	if err != nil {
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			panic(err.Error())
+			panic("Error looking for kubeconfig")
 		}
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	k.client, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		panic("Could not start clientset. Revise your kubeconfig roles and permissiones")
 	}
-	k.client = clientset
 }
 
 func outClusterConnect(k *KubernetesClient) {
@@ -63,13 +62,11 @@ func outClusterConnect(k *KubernetesClient) {
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		panic(err.Error())
+		panic("Error looking for kubeconfig")
 	}
 
-	// create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
+	k.client, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		panic("Could not start clientset. Revise your kubeconfig roles and permissiones")
 	}
-	k.client = clientset // stores the client connection for later use
 }
