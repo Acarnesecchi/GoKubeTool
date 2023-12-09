@@ -12,19 +12,19 @@ import (
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	apiv1 "k8s.io/api/core/v1"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type JobConfig struct {
+type Config struct {
 	JobName        string `yaml:"jobname"`
 	Namespace      string `yaml:"namespace"`
 	ContainerImage string `yaml:"containerImage"`
 	Command        string `yaml:"command"`
 	RestartPolicy  string `yaml:"restartPolicy"`
 	BackoffLimit   int32  `yaml:"backoffLimit"`
+	FailCondition  string `yaml:"failCondition"`
+	GracePeriod    int    `yaml:"gracePeriod"`
 }
 
 func fetch(k *KubernetesClient) {
@@ -44,7 +44,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 	check(err)
 	time.Sleep(5 * time.Second)
 
-	var pod corev1.Pod
+	var pod v1.Pod
 	found := false
 	for !found {
 		pods, err := k.client.CoreV1().Pods(config.Namespace).List(context.TODO(),
@@ -61,7 +61,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 			}
 		}
 	}
-	podLogOpts := corev1.PodLogOptions{Follow: true}
+	podLogOpts := v1.PodLogOptions{Follow: true}
 	req := k.client.CoreV1().Pods(config.Namespace).GetLogs(pod.Name, &podLogOpts)
 
 	success := make(chan bool)
@@ -77,14 +77,13 @@ func resetDB(k *KubernetesClient, f string) bool {
 
 		for {
 			select {
-			case <-ticker.C:
-				// Refresh the pod object to get the latest status
+			case <-ticker.C: // refresh the pod status every tick
 				updatedPod, err := k.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 				check(err)
-				if updatedPod.Status.Phase == corev1.PodSucceeded {
+				if updatedPod.Status.Phase == v1.PodSucceeded {
 					success <- true
 					return
-				} else if updatedPod.Status.Phase == corev1.PodFailed {
+				} else if updatedPod.Status.Phase == v1.PodFailed {
 					success <- false
 					return
 				}
@@ -92,29 +91,32 @@ func resetDB(k *KubernetesClient, f string) bool {
 				line, err := reader.ReadString('\n')
 				if err != nil {
 					if err == io.EOF {
-						continue // wait until pod status gets updated
+						continue
 					} else {
 						check(err)
 					}
 				}
 				fmt.Print(line)
+				if strings.Contains(line, config.FailCondition) {
+					success <- false
+					return
+				}
 			}
 		}
 	}()
 
 	val := <-success
-	fmt.Println(val)
-
-	fmt.Println("Job ended")
-	fmt.Println("Attemping pod deletion...")
+	if config.GracePeriod > 0 {
+		fmt.Printf("Waiting %d seconds before attempting pod deletion\n", config.GracePeriod)
+	}
 	deleteJob(k, config)
 	return val
 }
 
 func Deployment(k *KubernetesClient) {
-	deploymentsClient := k.client.AppsV1().Deployments(apiv1.NamespaceDefault)
+	deploymentsClient := k.client.AppsV1().Deployments(v1.NamespaceDefault)
 	deployment := &appsv1.Deployment{}
-	fmt.Sprintf("%s %s", deploymentsClient, deployment)
+	fmt.Printf("%s %s", deploymentsClient, deployment)
 }
 
 func check(e error) {
@@ -123,13 +125,13 @@ func check(e error) {
 	}
 }
 
-func parseConfig(f string) (*JobConfig, error) {
+func parseConfig(f string) (*Config, error) {
 	file, err := os.ReadFile(f)
 	if err != nil {
 		return nil, err
 	}
 
-	var c JobConfig
+	var c Config
 	err = yaml.Unmarshal(file, &c)
 	if err != nil {
 		return nil, err
@@ -137,7 +139,7 @@ func parseConfig(f string) (*JobConfig, error) {
 	return &c, nil
 }
 
-func createJob(k *KubernetesClient, c *JobConfig) error {
+func createJob(k *KubernetesClient, c *Config) error {
 	var cmd []string
 	var restartPolicy v1.RestartPolicy
 	namespace := "default"
@@ -178,7 +180,8 @@ func createJob(k *KubernetesClient, c *JobConfig) error {
 	return err
 }
 
-func deleteJob(k *KubernetesClient, c *JobConfig) {
+func deleteJob(k *KubernetesClient, c *Config) {
+	fmt.Println("Attemping pod deletion...")
 	propagationPolicy := metav1.DeletePropagationBackground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
