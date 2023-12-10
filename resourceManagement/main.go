@@ -40,7 +40,6 @@ func main() {
 		fmt.Println("Doing nothing")
 		fetch(client)
 	case "":
-		resetDB(client, *fp)
 		panic(("Empty argument"))
 	default:
 		panic(fmt.Sprintf("Invalid argument: %s", option))
