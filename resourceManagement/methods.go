@@ -13,6 +13,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,7 +42,24 @@ func resetDB(k *KubernetesClient, f string) bool {
 	config, err := parseConfig(f)
 	check(err)
 	err = createJob(k, config)
-	check(err)
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			fmt.Printf("Job %s already exists. Do you want to delete it before proceeding? [y/N]\n", config.JobName)
+			var r string
+			fmt.Scanln(&r)
+			r = strings.ToLower(strings.TrimSpace(r))
+			if r == "y" || r == "yes" {
+				deleteJob(k, config)
+				time.Sleep(5 * time.Second)
+				createJob(k, config)
+			} else {
+				fmt.Println("Exiting session...")
+				os.Exit(0)
+			}
+		} else {
+			panic(fmt.Sprintf("Failed to create job: %v\n", err))
+		}
+	}
 	time.Sleep(5 * time.Second)
 
 	var pod v1.Pod

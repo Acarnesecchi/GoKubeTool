@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 )
 
 const max int = 3
@@ -31,7 +32,7 @@ func main() {
 			val = resetDB(client, *fp)
 			if val {
 				fmt.Println("Job ended succesfully.")
-				break
+				os.Exit(0)
 			}
 		}
 		fmt.Printf("Job failed %d times. Check everything is working and try again\n", max)
@@ -39,6 +40,7 @@ func main() {
 		fmt.Println("Doing nothing")
 		fetch(client)
 	case "":
+		resetDB(client, *fp)
 		panic(("Empty argument"))
 	default:
 		panic(fmt.Sprintf("Invalid argument: %s", option))
