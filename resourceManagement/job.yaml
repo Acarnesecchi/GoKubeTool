@@ -3,5 +3,8 @@ containerImage: "random-status-log:1.0"
 restartPolicy: Never
 backoffLimit: 0
 namespace: test
+envVariables:
+  BEAMS_FORMULARY_RESET_DB: 1
+  OMG_AMAZING: jamon
 failCondition: "Starting database deletion process"
 gracePeriod: 2
