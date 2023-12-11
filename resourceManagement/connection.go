@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"k8s.io/client-go/kubernetes"
@@ -15,20 +16,34 @@ type KubernetesClient struct {
 	client *kubernetes.Clientset
 }
 
-func inClusterConnect(k *KubernetesClient) {
-	// Configures the client to use your local kubeconfig file.
-	var kubeconfig string
-	defaultKubeConfigPath := filepath.Join("/root", ".kube", "config") //you'll have to deal with file permissions!
-	if home := homedir.HomeDir(); home != "" {
-		homeKubeConfigPath := filepath.Join(home, ".kube", "config")
-		if _, err := os.Stat(homeKubeConfigPath); err == nil {
-			kubeconfig = homeKubeConfigPath
-		} else {
-			kubeconfig = defaultKubeConfigPath
+func getKubeConfig(isMicrok8s bool) string {
+	if isMicrok8s {
+		cmd := exec.Command("microk8s", "config")
+		cmdOutput, err := cmd.Output()
+		if err != nil {
+			panic("Error executing microk8s config command")
 		}
+
+		configPath := filepath.Join(".", "mk8s-config")
+		err = os.WriteFile(configPath, cmdOutput, 0644)
+		if err != nil {
+			panic("Error writing mk8s-config file")
+		}
+		return configPath
 	} else {
-		kubeconfig = defaultKubeConfigPath
+		if home := homedir.HomeDir(); home != "" {
+			homeKubeConfigPath := filepath.Join(home, ".kube", "config")
+			if _, err := os.Stat(homeKubeConfigPath); err == nil {
+				return homeKubeConfigPath
+			}
+		}
+		return filepath.Join(".", "config")
 	}
+}
+
+func inClusterConnect(k *KubernetesClient, useMicrok8s bool) {
+	// Configures the client to use your local kubeconfig file.
+	kubeconfig := getKubeConfig(useMicrok8s) // Getting kubeconfig path
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -44,20 +59,9 @@ func inClusterConnect(k *KubernetesClient) {
 	}
 }
 
-func outClusterConnect(k *KubernetesClient) {
+func outClusterConnect(k *KubernetesClient, useMicrok8s bool) {
 	// Configures the client to use your local kubeconfig file.
-	var kubeconfig string
-	defaultKubeConfigPath := filepath.Join("/root", ".kube", "config") //you'll have to deal with file permissions!
-	if home := homedir.HomeDir(); home != "" {
-		homeKubeConfigPath := filepath.Join(home, ".kube", "config")
-		if _, err := os.Stat(homeKubeConfigPath); err == nil {
-			kubeconfig = homeKubeConfigPath
-		} else {
-			kubeconfig = defaultKubeConfigPath
-		}
-	} else {
-		kubeconfig = defaultKubeConfigPath
-	}
+	kubeconfig := getKubeConfig(useMicrok8s) // Getting kubeconfig path
 	flag.Parse()
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
