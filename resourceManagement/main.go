@@ -11,14 +11,15 @@ const max int = 3
 func main() {
 	fp := flag.String("f", "/opt/devtools/config.yaml", "path of file to examine")
 	inCluster := flag.Bool("ioc", false, "Connection mode. Set to false if it is executed from a pod inside the cluster")
+	useMicrok8s := flag.Bool("microk8s", false, "Specify if you want to use microk8s instead of minikube")
 	flag.Parse()
 	option := flag.Arg(0)
 
 	client := &KubernetesClient{}
 	if !*inCluster {
-		outClusterConnect(client)
+		outClusterConnect(client, *useMicrok8s)
 	} else {
-		inClusterConnect(client)
+		inClusterConnect(client, *useMicrok8s)
 	}
 
 	switch option {
