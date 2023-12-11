@@ -91,7 +91,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 		defer logStream.Close()
 
 		reader := bufio.NewReader(logStream)
-		ticker := time.NewTicker(5 * time.Second) // Adjust the duration as needed
+		ticker := time.NewTicker(15 * time.Second) // Adjust the duration as needed
 		defer ticker.Stop()
 
 		for {
