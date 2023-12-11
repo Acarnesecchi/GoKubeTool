@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,28 @@ import (
 
 type KubernetesClient struct {
 	client *kubernetes.Clientset
+}
+
+func deleteConfigFile() error {
+	cwd, err := os.Getwd() // Getting current working dir
+	if err != nil {
+		return fmt.Errorf("error getting current working directory: %w", err)
+	}
+
+	configFilePath := filepath.Join(cwd, "mk8s-config")
+	if _, err := os.Stat(configFilePath); err == nil {
+		// File exists, so delete it
+		if err := os.Remove(configFilePath); err != nil {
+			return fmt.Errorf("error deleting 'mk8s-config': %w", err)
+		}
+		fmt.Println("'mk8s-config' successfully deleted")
+	} else if os.IsNotExist(err) {
+		fmt.Println("no config to remove")
+	} else {
+		return fmt.Errorf("error checking 'mk8s-config': %w", err)
+	}
+
+	return nil
 }
 
 func getKubeConfig(isMicrok8s bool) string {
@@ -57,6 +80,10 @@ func inClusterConnect(k *KubernetesClient, useMicrok8s bool) {
 	if err != nil {
 		panic("Could not start clientset. Revise your kubeconfig roles and permissiones")
 	}
+	// Removing config file
+	if err := deleteConfigFile(); err != nil {
+		fmt.Println("Error:", err)
+	}
 }
 
 func outClusterConnect(k *KubernetesClient, useMicrok8s bool) {
@@ -72,5 +99,9 @@ func outClusterConnect(k *KubernetesClient, useMicrok8s bool) {
 	k.client, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		panic("Could not start clientset. Revise your kubeconfig roles and permissiones")
+	}
+	// Removing config file
+	if err := deleteConfigFile(); err != nil {
+		fmt.Println("Error:", err)
 	}
 }
