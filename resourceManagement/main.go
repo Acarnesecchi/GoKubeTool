@@ -31,7 +31,6 @@ func main() {
 			}
 			val = resetDB(client, *fp)
 			if val {
-				fmt.Println("Job ended succesfully.")
 				os.Exit(0)
 			}
 		}

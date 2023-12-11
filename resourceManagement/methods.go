@@ -18,14 +18,15 @@ import (
 )
 
 type Config struct {
-	JobName        string `yaml:"jobname"`
-	Namespace      string `yaml:"namespace"`
-	ContainerImage string `yaml:"containerImage"`
-	Command        string `yaml:"command"`
-	RestartPolicy  string `yaml:"restartPolicy"`
-	BackoffLimit   int32  `yaml:"backoffLimit"`
-	FailCondition  string `yaml:"failCondition"`
-	GracePeriod    int    `yaml:"gracePeriod"`
+	JobName        string            `yaml:"jobname"`
+	Namespace      string            `yaml:"namespace"`
+	ContainerImage string            `yaml:"containerImage"`
+	Command        string            `yaml:"command"`
+	RestartPolicy  string            `yaml:"restartPolicy"`
+	BackoffLimit   int32             `yaml:"backoffLimit"`
+	FailCondition  string            `yaml:"failCondition"`
+	GracePeriod    int               `yaml:"gracePeriod"`
+	EnvVariables   map[string]string `yaml:"envVariables"`
 }
 
 func fetch(k *KubernetesClient) {
@@ -54,7 +55,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 				createJob(k, config)
 			} else {
 				fmt.Println("Exiting session...")
-				os.Exit(0)
+				return true
 			}
 		} else {
 			panic(fmt.Sprintf("Failed to create job: %v\n", err))
@@ -100,6 +101,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 				check(err)
 				if updatedPod.Status.Phase == v1.PodSucceeded {
 					success <- true
+					fmt.Println("Job ended succesfully.")
 					return
 				} else if updatedPod.Status.Phase == v1.PodFailed {
 					success <- false
@@ -172,6 +174,15 @@ func createJob(k *KubernetesClient, c *Config) error {
 	} else {
 		restartPolicy = v1.RestartPolicyNever
 	}
+
+	var envVars []v1.EnvVar
+	for key, value := range c.EnvVariables {
+		envVars = append(envVars, v1.EnvVar{
+			Name:  key,
+			Value: value,
+		})
+	}
+
 	jobs := k.client.BatchV1().Jobs(namespace)
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -186,6 +197,7 @@ func createJob(k *KubernetesClient, c *Config) error {
 							Name:    c.JobName,
 							Image:   c.ContainerImage,
 							Command: cmd,
+							Env:     envVars,
 						},
 					},
 					RestartPolicy: restartPolicy,
