@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+
+<!-- Top bar with logo and text -->
+<div class="navbar bg-base-100">
+  <div class="flex-1">
+    <a class="btn btn-ghost normal-case text-xl">Your Logo Here</a>
+  </div>
+  <div class="flex-none">
+    <span class="text-lg">Some Text</span>
+  </div>
+</div>
+
+<!-- Main content with buttons -->
+<div class="p-10 grid grid-cols-3 gap-4">
+  <!-- Pre-defined Job Button -->
+  <div class="card card-bordered w-96 h-96 bg-base-200">
+    <figure><img src="/images/pre-defined.png" alt="Pre-defined Job"></figure>
+    <div class="card-body">
+      <h2 class="card-title">Pre-defined Job</h2>
+      <div class="card-actions justify-end">
+        <button class="btn btn-primary">Go</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Entrypoint Button -->
+  <div class="card card-bordered w-96 h-96 bg-base-200">
+    <figure><img src="/images/custom.png" alt="Custom Entrypoint"></figure>
+    <div class="card-body">
+      <h2 class="card-title">Custom Entrypoint</h2>
+      <div class="card-actions justify-end">
+        <button class="btn btn-secondary">Go</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Others Button -->
+  <div class="card card-bordered w-96 h-96 bg-base-200">
+    <figure><img src="/images/job-list.png" alt="Others"></figure>
+    <div class="card-body">
+      <h2 class="card-title">Others...</h2>
+      <div class="card-actions justify-end">
+        <button class="btn btn-accent">Go</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
