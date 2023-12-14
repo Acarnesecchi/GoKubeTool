@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package devtools;
+
+service DevToolsService {
+
+    rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
+
+    rpc Fetch (FetchRequest) returns (FetchResponse) {}
+
+    //rpc CreateDeployment (CreateDeploymentRequest) returns (CreateDeploymentResponse) {}
+
+    rpc CreateJob (CreateJobRequest) returns (CreateJobResponse) {}
+
+    // rpc DeleteDeployment (DeleteDeploymentRequest) returns (DeleteDeploymentResponse) {}
+
+    rpc DeleteJob (DeleteJobRequest) returns (DeleteJobResponse) {}
+}
+
+enum ResourceType {
+    UNKNOWN = 0;
+    NAMESPACE = 1;
+    POD = 2;
+    JOB = 3;
+}
+
+message FetchRequest {
+    ResourceType resource = 1;
+}
+
+message FetchNamespacesResponse {
+    repeated string resources = 1;
+}
+
+// message CreateDeploymentRequest {
+//     string name = 1;
+// }
+
+// message CreateDeploymentResponse {
+//     bool success = 1;
+//     string message = 2;
+// }
+
+message CreateJobRequest {
+    string name = 1;
+    string image = 2;
+    string namespace = 3;
+    repeated string env_key = 4;
+    repeated string env_value = 5;
+    repeated string fail_condition = 6;
+    // oneof entry_point {
+    //     string command = 7;
+    //     string file_url = 8;
+    // }
+    string command = 7;
+    string file_url = 8;
+    uint32 grace_period = 9;
+}
+
+message CreateJobResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message DeleteDeploymentRequest {
+    string name = 1;
+}
+
+message DeleteDeploymentResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message DeleteJobRequest {
+    string name = 1;
+    string namespace = 2;
+}
+
+message DeleteJobResponse {
+    bool success = 1;
+    string message = 2;
+}
