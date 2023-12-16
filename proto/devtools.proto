@@ -1,10 +1,12 @@
 syntax = "proto3";
 
+option go_package = "github.com/Acarnesecchi/GoKubeTool";
+
 package devtools;
 
 service DevToolsService {
 
-    rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
+    // rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
 
     rpc Fetch (FetchRequest) returns (FetchResponse) {}
 
@@ -26,10 +28,11 @@ enum ResourceType {
 
 message FetchRequest {
     ResourceType resource = 1;
+    string namespace = 2;
 }
 
-message FetchNamespacesResponse {
-    repeated string resources = 1;
+message FetchResponse {
+    repeated string resource = 1;
 }
 
 // message CreateDeploymentRequest {
