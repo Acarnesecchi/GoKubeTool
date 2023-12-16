@@ -1,7 +1,9 @@
 package main
 
-import "github.com/Acarnesecchi/GoKubeTool/api"
+import kube "github.com/Acarnesecchi/GoKubeTool/resourceManagement"
 
 func main() {
-	api.Init()
+	kube.StartServer()
 }
+
+//option string, inCluster bool, useMicrok8s bool, fp string /opt/devtools/config.yaml
