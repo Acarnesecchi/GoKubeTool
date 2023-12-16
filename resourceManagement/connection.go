@@ -13,10 +13,6 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-type KubernetesClient struct {
-	client *kubernetes.Clientset
-}
-
 func deleteConfigFile() error {
 	cwd, err := os.Getwd() // Getting current working dir
 	if err != nil {
@@ -64,7 +60,7 @@ func getKubeConfig(isMicrok8s bool) string {
 	}
 }
 
-func inClusterConnect(k *KubernetesClient, useMicrok8s bool) {
+func inClusterConnect(k *kubernetes.Clientset, useMicrok8s bool) error {
 	// Configures the client to use your local kubeconfig file.
 	kubeconfig := getKubeConfig(useMicrok8s) // Getting kubeconfig path
 
@@ -72,36 +68,38 @@ func inClusterConnect(k *KubernetesClient, useMicrok8s bool) {
 	if err != nil {
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			panic("Error looking for kubeconfig")
+			return err
 		}
 	}
 
-	k.client, err = kubernetes.NewForConfig(config)
+	k, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		panic("Could not start clientset. Revise your kubeconfig roles and permissiones")
+		return fmt.Errorf("could not start clientset. Revise your kubeconfig roles and permissiones")
 	}
 	// Removing config file
 	if err := deleteConfigFile(); err != nil {
-		fmt.Println("Error:", err)
+		return err
 	}
+	return err
 }
 
-func outClusterConnect(k *KubernetesClient, useMicrok8s bool) {
+func outClusterConnect(k *devToolsServer, useMicrok8s bool) error {
 	// Configures the client to use your local kubeconfig file.
 	kubeconfig := getKubeConfig(useMicrok8s) // Getting kubeconfig path
 	flag.Parse()
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		panic("Error looking for kubeconfig")
+		return err
 	}
 
-	k.client, err = kubernetes.NewForConfig(config)
+	k.k8sClient, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		panic("Could not start clientset. Revise your kubeconfig roles and permissiones")
+		return err
 	}
 	// Removing config file
 	if err := deleteConfigFile(); err != nil {
-		fmt.Println("Error:", err)
+		return err
 	}
+	return err
 }

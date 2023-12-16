@@ -9,12 +9,14 @@ import (
 	"strings"
 	"time"
 
+	pb "github.com/Acarnesecchi/GoKubeTool/proto"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 type Config struct {
@@ -29,17 +31,49 @@ type Config struct {
 	EnvVariables   map[string]string `yaml:"envVariables"`
 }
 
-func fetch(k *KubernetesClient) {
-	namespaces, err := k.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-	check(err)
+func fetchResources(k *kubernetes.Clientset, resourceType pb.ResourceType, namespace string) ([]string, error) {
+	var items []string
+	var err error
 
-	fmt.Println("Namespaces in the cluster:")
-	for _, ns := range namespaces.Items {
-		fmt.Println(ns.Name)
+	switch resourceType {
+	case pb.ResourceType_NAMESPACE:
+		var list *v1.NamespaceList
+		list, err = k.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range list.Items {
+			items = append(items, item.Name)
+		}
+
+	case pb.ResourceType_POD:
+		var list *v1.PodList
+		list, err = k.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range list.Items {
+			items = append(items, item.Name)
+		}
+
+	case pb.ResourceType_JOB:
+		var list *batchv1.JobList
+		list, err = k.BatchV1().Jobs(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range list.Items {
+			items = append(items, item.Name)
+		}
+
+	default:
+		return nil, fmt.Errorf("unknown resource type")
 	}
+
+	return items, nil
 }
 
-func resetDB(k *KubernetesClient, f string) bool {
+func resetDB(k *kubernetes.Clientset, f string) bool {
 	config, err := parseConfig(f)
 	check(err)
 	err = createJob(k, config)
@@ -66,7 +100,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 	var pod v1.Pod
 	found := false
 	for !found {
-		pods, err := k.client.CoreV1().Pods(config.Namespace).List(context.TODO(),
+		pods, err := k.CoreV1().Pods(config.Namespace).List(context.TODO(),
 			metav1.ListOptions{
 				LabelSelector: "job-name=" + config.JobName,
 			})
@@ -81,7 +115,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 		}
 	}
 	podLogOpts := v1.PodLogOptions{Follow: true}
-	req := k.client.CoreV1().Pods(config.Namespace).GetLogs(pod.Name, &podLogOpts)
+	req := k.CoreV1().Pods(config.Namespace).GetLogs(pod.Name, &podLogOpts)
 
 	success := make(chan bool)
 	go func() {
@@ -97,7 +131,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 		for {
 			select {
 			case <-ticker.C: // refresh the pod status every tick
-				updatedPod, err := k.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+				updatedPod, err := k.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 				check(err)
 				if updatedPod.Status.Phase == v1.PodSucceeded {
 					success <- true
@@ -133,8 +167,8 @@ func resetDB(k *KubernetesClient, f string) bool {
 	return val
 }
 
-func Deployment(k *KubernetesClient) {
-	deploymentsClient := k.client.AppsV1().Deployments(v1.NamespaceDefault)
+func Deployment(k *kubernetes.Clientset) {
+	deploymentsClient := k.AppsV1().Deployments(v1.NamespaceDefault)
 	deployment := &appsv1.Deployment{}
 	fmt.Printf("%s %s", deploymentsClient, deployment)
 }
@@ -159,7 +193,7 @@ func parseConfig(f string) (*Config, error) {
 	return &c, nil
 }
 
-func createJob(k *KubernetesClient, c *Config) error {
+func createJob(k *kubernetes.Clientset, c *Config) error {
 	var cmd []string
 	var restartPolicy v1.RestartPolicy
 	namespace := "default"
@@ -183,7 +217,7 @@ func createJob(k *KubernetesClient, c *Config) error {
 		})
 	}
 
-	jobs := k.client.BatchV1().Jobs(namespace)
+	jobs := k.BatchV1().Jobs(namespace)
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.JobName,
@@ -210,14 +244,14 @@ func createJob(k *KubernetesClient, c *Config) error {
 	return err
 }
 
-func deleteJob(k *KubernetesClient, c *Config) {
+func deleteJob(k *kubernetes.Clientset, c *Config) {
 	fmt.Println("Attemping pod deletion...")
 	propagationPolicy := metav1.DeletePropagationBackground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}
 
-	err := k.client.BatchV1().Jobs(c.Namespace).Delete(context.TODO(), c.JobName, deleteOptions)
+	err := k.BatchV1().Jobs(c.Namespace).Delete(context.TODO(), c.JobName, deleteOptions)
 	check(err)
 
 	fmt.Println("Job and its associated pods are being deleted.")
