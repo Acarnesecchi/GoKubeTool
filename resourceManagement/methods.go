@@ -40,9 +40,10 @@ func fetch(k *KubernetesClient) {
 }
 
 func resetDB(k *KubernetesClient, f string) bool {
+	var podName string
 	config, err := parseConfig(f)
 	check(err)
-	err = createJob(k, config)
+	podName, err = createJob(k, config)
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			fmt.Printf("Job %s already exists. Do you want to delete it before proceeding? [y/N]\n", config.JobName)
@@ -52,7 +53,8 @@ func resetDB(k *KubernetesClient, f string) bool {
 			if r == "y" || r == "yes" {
 				deleteJob(k, config)
 				time.Sleep(5 * time.Second)
-				createJob(k, config)
+				podName, err = createJob(k, config)
+				check(err)
 			} else {
 				fmt.Println("Exiting session...")
 				return true
@@ -61,27 +63,9 @@ func resetDB(k *KubernetesClient, f string) bool {
 			panic(fmt.Sprintf("Failed to create job: %v\n", err))
 		}
 	}
-	time.Sleep(5 * time.Second)
 
-	var pod v1.Pod
-	found := false
-	for !found {
-		pods, err := k.client.CoreV1().Pods(config.Namespace).List(context.TODO(),
-			metav1.ListOptions{
-				LabelSelector: "job-name=" + config.JobName,
-			})
-		check(err)
-
-		for _, p := range pods.Items {
-			if strings.HasPrefix(p.Name, config.JobName) {
-				pod = p
-				found = true
-				break
-			}
-		}
-	}
 	podLogOpts := v1.PodLogOptions{Follow: true}
-	req := k.client.CoreV1().Pods(config.Namespace).GetLogs(pod.Name, &podLogOpts)
+	req := k.client.CoreV1().Pods(config.Namespace).GetLogs(podName, &podLogOpts)
 
 	success := make(chan bool)
 	go func() {
@@ -97,7 +81,7 @@ func resetDB(k *KubernetesClient, f string) bool {
 		for {
 			select {
 			case <-ticker.C: // refresh the pod status every tick
-				updatedPod, err := k.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+				updatedPod, err := k.client.CoreV1().Pods(config.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 				check(err)
 				if updatedPod.Status.Phase == v1.PodSucceeded {
 					success <- true
@@ -159,7 +143,7 @@ func parseConfig(f string) (*Config, error) {
 	return &c, nil
 }
 
-func createJob(k *KubernetesClient, c *Config) error {
+func createJob(k *KubernetesClient, c *Config) (string, error) {
 	var cmd []string
 	var restartPolicy v1.RestartPolicy
 	namespace := "default"
@@ -206,8 +190,53 @@ func createJob(k *KubernetesClient, c *Config) error {
 			BackoffLimit: &c.BackoffLimit,
 		},
 	}
-	_, err := jobs.Create(context.TODO(), jobSpec, metav1.CreateOptions{})
-	return err
+	job, err := jobs.Create(context.TODO(), jobSpec, metav1.CreateOptions{})
+	if err != nil {
+		return "", err
+	}
+	labelSelector := fmt.Sprintf("job-name=%s", job.ObjectMeta.Name)
+	watcher, err := k.client.CoreV1().Pods(namespace).Watch(context.TODO(), metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	check(err)
+	var podName string
+	for event := range watcher.ResultChan() {
+		pod, ok := event.Object.(*v1.Pod)
+		if !ok {
+			return "", fmt.Errorf("unexpected type")
+		}
+		if pod.Status.Phase == v1.PodRunning {
+			podName = pod.Name
+			fmt.Println("Job started")
+			break
+		}
+	}
+
+	// timeout := time.After(30 * time.Minute) // Example timeout
+	// for {
+	// 	select {
+	// 	case event := <-watcher.ResultChan():
+	// 		e, ok := event.Object.(*v1.Event)
+	// 		if !ok {
+	// 			return fmt.Errorf("unexpected type")
+	// 		}
+
+	// 		// Check for specific events like image pull failures or PVC issues
+	// 		if strings.Contains(e.Message, "Failed to pull image") {
+	// 			// Handle image pull failure
+	// 			return fmt.Errorf("image pull failure: %s", e.Message)
+	// 		} else if strings.Contains(e.Message, "persistentvolumeclaim \"<PVC_NAME>\" not found") {
+	// 			// Handle PVC binding issue
+	// 			return fmt.Errorf("PVC binding issue: %s", e.Message)
+	// 		}
+
+	// 	case <-timeout:
+	// 		// Handle timeout scenario
+	// 		return fmt.Errorf("operation timed out")
+	// 	}
+	// }
+
+	return podName, err
 }
 
 func deleteJob(k *KubernetesClient, c *Config) {
