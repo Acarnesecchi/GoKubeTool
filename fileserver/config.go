@@ -18,14 +18,13 @@ type Config struct {
 
 func NewConfig() Config {
 	return Config{
-		storage:      "local",
-		storageAddr:  "/opt/devtools/storage/",
-		listenAddr:   ":50058",
-		queue:        "rabbitmq",
-		queueAddr:    ":50059",
-		volumeType:   "host-storage",
-		databaseAddr: ":5432",
-		timeout:      10 * time.Second,
+		storage:     "local",
+		storageAddr: "/opt/devtools/storage/",
+		listenAddr:  ":50058",
+		queue:       "rabbitmq",
+		queueAddr:   ":50059",
+		volumeType:  "host-storage",
+		timeout:     10 * time.Second,
 	}
 }
 
